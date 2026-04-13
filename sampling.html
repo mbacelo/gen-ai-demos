@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sampling Strategies - GenAI Fundamentals</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
@@ -37,17 +37,7 @@
         </label>
         <input type="range" id="topk-slider" min="1" max="15" value="15" oninput="updateSampling()">
       </div>
-      <div class="control-group">
-        <label>
-          Filter Mode
-          <span class="tooltip" data-tip="Determines how to combine Top-K and Top-P restrictions. 'Intersection' applies both rules simultaneously.">?</span>
-        </label>
-        <select id="topkp-mode" onchange="updateSampling()">
-          <option value="topp" selected>Top-P only</option>
-          <option value="topk">Top-K only</option>
-          <option value="both">Both (Intersection)</option>
-        </select>
-      </div>
+      <!-- Filter Mode removed — using Both (Intersection) by default -->
       <button class="action-btn" onclick="sampleToken()">Sample Next Token</button>
       <button class="action-btn secondary" onclick="resetSampled()">Reset</button>
     </div>
@@ -64,6 +54,6 @@
   Interactive demos for Generative AI Fundamentals
 </div>
 
-<script src="sampling.js"></script>
+<script src="js/sampling.js"></script>
 </body>
 </html>

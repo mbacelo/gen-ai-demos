@@ -1,5 +1,78 @@
+// ============================================================
+// UTILITY
+// ============================================================
 const $ = id => document.getElementById(id);
+const tokenColors = [
+  '#6c63ff','#00c9a7','#ff6b6b','#ffd93d','#4ecdc4',
+  '#a78bfa','#f472b6','#fb923c','#38bdf8','#34d399',
+  '#e879f9','#facc15','#f87171','#22d3ee','#818cf8'
+];
 
+// ============================================================
+// 1. TOKENIZER
+// ============================================================
+function simpleTokenize(text) {
+  if (!text) return [];
+  const tokens = [];
+  const regex = /([A-Za-z]+(?:'[a-z]+)?|[0-9]+(?:\.[0-9]+)?|[^A-Za-z0-9\s]|\s+)/g;
+  let m;
+  while ((m = regex.exec(text)) !== null) {
+    const t = m[0];
+    if (t.length > 6 && /^[A-Za-z]+$/.test(t)) {
+      // Simulate BPE splitting for longer words
+      const mid = Math.ceil(t.length * 0.55);
+      tokens.push(t.slice(0, mid), t.slice(mid));
+    } else {
+      tokens.push(t);
+    }
+  }
+  return tokens;
+}
+
+function tokenize() {
+  const text = $('token-input').value;
+  const tokens = simpleTokenize(text);
+  const output = $('token-output');
+  output.innerHTML = '';
+  
+  const tokenMap = new Map();
+  let colorIdx = 0;
+
+  tokens.forEach((t, i) => {
+    if (!tokenMap.has(t)) {
+      tokenMap.set(t, tokenColors[colorIdx % tokenColors.length]);
+      colorIdx++;
+    }
+    const color = tokenMap.get(t);
+
+    const span = document.createElement('span');
+    span.className = 'token';
+    span.textContent = t.replace(/ /g, '\u00B7').replace(/\n/g, '\u21B5');
+    span.style.background = color + '22';
+    span.style.borderColor = color + '66';
+    span.title = `Token #${i + 1} (${t})`;
+    output.appendChild(span);
+  });
+
+  const chars = text.length;
+  const numTokens = tokens.length;
+  $('stat-chars').textContent = chars.toLocaleString();
+  $('stat-tokens').textContent = numTokens.toLocaleString();
+  $('stat-ratio').textContent = numTokens > 0 ? (chars / numTokens).toFixed(2) : '0';
+
+  const sel = $('token-model');
+  const opt = sel.options[sel.selectedIndex];
+  const priceIn = parseFloat(opt.dataset.in);
+  const cost = (numTokens / 1_000_000) * priceIn;
+  $('stat-cost').textContent = '$' + cost.toFixed(6);
+}
+
+$('token-input').addEventListener('input', tokenize);
+tokenize();
+
+// ============================================================
+// 2 & 3. TEMPERATURE & SAMPLING (UNIFIED)
+// ============================================================
 const baseProbs = [
   { token: 'pizza', prob: 0.25 },
   { token: 'sushi', prob: 0.18 },
@@ -41,7 +114,7 @@ function updateSampling() {
 
   const temp = parseFloat(tempSlider.value) / 100;
   const K = parseInt(kSlider.value);
-  const P = parseFloat(pSlider.value) / 100;
+  const P = parseInt(pSlider.value) / 100;
   const mode = modeSel.value;
 
   $('temp-val').textContent = temp.toFixed(2);
@@ -50,6 +123,7 @@ function updateSampling() {
 
   const adjusted = applyTemperature(baseProbs, temp);
   
+  // Compute filtering sets
   const topKSet = new Set(adjusted.slice(0, K).map(p => p.token));
   
   let cumulative = 0;
@@ -85,7 +159,7 @@ function updateSampling() {
     
     const valEl = document.createElement('div');
     valEl.className = 'bar-value';
-    valEl.style.opacity = '1';
+    valEl.style.opacity = '1'; // Force visible
     valEl.style.top = '-20px';
     valEl.textContent = (item.adjusted * 100).toFixed(1) + '%';
     bar.appendChild(valEl);
@@ -110,11 +184,12 @@ let sampledTokens = [];
 function sampleToken() {
   const temp = parseFloat($('temp-slider').value) / 100;
   const K = parseInt($('topk-slider').value);
-  const P = parseFloat($('topp-slider').value) / 100;
+  const P = parseInt($('topp-slider').value) / 100;
   const mode = $('topkp-mode').value;
   
   const adjusted = applyTemperature(baseProbs, temp);
   
+  // Re-run filtering logic to find valid tokens
   const topKSet = new Set(adjusted.slice(0, K).map(p => p.token));
   let cumulativeP = 0;
   const topPSet = new Set();
@@ -132,6 +207,7 @@ function sampleToken() {
 
   if (filtered.length === 0) return;
 
+  // Re-normalize filtered probabilities to sample
   const sum = filtered.reduce((a, b) => a + b.adjusted, 0);
   let r = Math.random() * sum;
   let selected = filtered[filtered.length - 1].token;
@@ -148,3 +224,26 @@ function sampleToken() {
 function resetSampled() { sampledTokens = []; $('temp-sampled').innerHTML = ''; }
 
 try { updateSampling(); } catch(e) { console.error(e); }
+
+// ============================================================
+// NAV SCROLL
+// ============================================================
+function scrollToDemo(id, btn) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  $(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Highlight nav on scroll
+const sections = ['tokenizer', 'sampling'];
+const navBtns = document.querySelectorAll('.nav-btn');
+window.addEventListener('scroll', () => {
+  let current = sections[0];
+  sections.forEach(id => {
+    const el = $(id);
+    if (el && el.getBoundingClientRect().top <= 120) current = id;
+  });
+  navBtns.forEach((btn, i) => {
+    btn.classList.toggle('active', sections[i] === current);
+  });
+});
