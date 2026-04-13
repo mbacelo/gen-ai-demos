@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive RAG Explorer - GenAI Fundamentals</title>
+<link rel="stylesheet" href="styles.css">
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+    .rag-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+    }
+    @media (max-width: 1024px) {
+        .rag-grid { grid-template-columns: 1fr; }
+    }
+    .phase-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+    .phase-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--accent);
+    }
+    .phase-card.phase-2::before {
+        background: linear-gradient(to bottom, var(--accent2), var(--accent6));
+    }
+    .phase-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+    }
+    .indexing-layout {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 16px;
+    }
+    .node-box {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        transition: opacity 0.5s, transform 0.5s;
+    }
+    .node-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-dim);
+        margin-bottom: 8px;
+    }
+    .node-content {
+        font-size: 0.75rem;
+        line-height: 1.4;
+        background: var(--bg);
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+    }
+    .embedding-box {
+        font-family: 'Consolas', monospace;
+        color: var(--accent6);
+        background: rgba(167, 139, 250, 0.1);
+        text-align: center;
+    }
+    .vector-db-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        min-height: 140px;
+    }
+    .vector-db-box.stored {
+        border-color: var(--accent2);
+        background: rgba(0, 201, 167, 0.05);
+        box-shadow: 0 0 20px rgba(0, 201, 167, 0.2);
+    }
+    .db-icon {
+        color: var(--text-dim);
+        margin-bottom: 8px;
+        transition: color 0.5s;
+    }
+    .stored .db-icon { color: var(--accent2); }
+    .db-label { font-size: 0.85rem; font-weight: 600; }
+    .db-sub { font-size: 0.7rem; color: var(--text-dim); }
+    .db-lines {
+        display: none;
+        gap: 4px;
+        margin-top: 8px;
+    }
+    .db-line {
+        width: 20px;
+        height: 4px;
+        background: var(--border);
+        border-radius: 2px;
+        transition: all 0.3s;
+    }
+
+    .rag-layout {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+    .rag-sub-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--accent2);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .rag-box {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+    .rag-box.context {
+        background: rgba(0, 201, 167, 0.05);
+        border-color: rgba(0, 201, 167, 0.2);
+    }
+    .rag-box.output {
+        background: rgba(108, 99, 255, 0.05);
+        border-color: rgba(108, 99, 255, 0.2);
+        min-height: 100px;
+    }
+    .similarity-bars {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    .sim-bar-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .sim-bar-label {
+        font-size: 0.7rem;
+        color: var(--text-dim);
+        min-width: 52px;
+        white-space: nowrap;
+    }
+    .sim-bar-track {
+        flex: 1;
+        height: 14px;
+        background: var(--surface2);
+        border-radius: 7px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
+    .sim-bar-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: 7px;
+        transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .sim-bar-fill.best-match {
+        background: var(--accent2) !important;
+        box-shadow: 0 0 12px rgba(0, 201, 167, 0.5);
+    }
+    .sim-bar-score {
+        font-size: 0.7rem;
+        font-family: 'Consolas', monospace;
+        color: var(--text-dim);
+        min-width: 32px;
+        text-align: right;
+        opacity: 0;
+        transition: opacity 0.5s;
+    }
+    .sim-bar-score.visible { opacity: 1; }
+    .small-label {
+        font-size: 0.7rem;
+        color: var(--text-dim);
+        margin-bottom: 4px;
+    }
+    .small-label.accent2 { color: var(--accent2); font-weight: 600; }
+    .small-label.accent6 { color: var(--accent6); font-weight: 600; }
+
+    .controls-panel {
+        position: sticky;
+        top: 100px;
+    }
+    .controls-heading {
+        font-size: 1.2rem;
+        margin-bottom: 16px;
+    }
+    .controls-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 24px;
+    }
+    .btn-next {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    .explainer-section { margin-bottom: 24px; }
+    .explainer-heading {
+        font-size: 0.75rem;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+    }
+    .explainer-body {
+        font-size: 0.9rem;
+        background: var(--surface2);
+        padding: 16px;
+        border-radius: 8px;
+        min-height: 100px;
+        line-height: 1.5;
+    }
+
+    .progress-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 12px;
+    }
+    .progress-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 2px solid var(--border);
+    }
+    .progress-dot.active { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+    .progress-dot.done { background: var(--accent2); border-color: var(--accent2); }
+    .progress-label { font-size: 0.85rem; color: var(--text-dim); }
+    .progress-label.active { color: var(--text); font-weight: 600; }
+
+    .hidden-el { opacity: 0; transform: translateY(10px); pointer-events: none; }
+    .visible-el { opacity: 1; transform: translateY(0); }
+
+    @keyframes storage-pulse {
+        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 201, 167, 0.4); }
+        70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(0, 201, 167, 0); }
+        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 201, 167, 0); }
+    }
+    .pulse-storage { animation: storage-pulse 1s ease-out; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1><a href="index.html" style="text-decoration: none; color: inherit;">&larr;</a> Interactive RAG Explorer</h1>
+  <p>Retrieval-Augmented Generation grounds LLMs in external knowledge. Step through the process to see how indexing and retrieval work.</p>
+</div>
+
+<div class="demo-section">
+    <div class="rag-grid">
+        <!-- Visualization Area -->
+        <div class="viz-column">
+            
+            <!-- Phase 1: Indexing -->
+            <div class="phase-card" id="phase-1-card">
+                <div class="phase-title">
+                    <i data-lucide="layers" style="color:var(--accent)"></i>
+                    Phase 1: Knowledge Indexing
+                </div>
+
+                <div class="indexing-layout">
+                    <div class="node-box">
+                        <div class="node-header"><i data-lucide="file-text" size="14"></i> Source Document</div>
+                        <div id="doc-text" class="node-content"></div>
+                    </div>
+
+                    <div id="chunks-container" class="node-box hidden-el">
+                        <div class="node-header"><i data-lucide="split-square-horizontal" size="14"></i> Chunks</div>
+                        <div id="chunk-0" class="node-content" style="margin-bottom:4px"></div>
+                        <div id="chunk-1" class="node-content" style="margin-bottom:4px"></div>
+                        <div id="chunk-2" class="node-content"></div>
+                    </div>
+
+                    <div id="embeddings-container" class="node-box hidden-el">
+                        <div class="node-header"><i data-lucide="zap" size="14"></i> Embeddings</div>
+                        <div id="emb-0" class="node-content embedding-box" style="margin-bottom:4px"></div>
+                        <div id="emb-1" class="node-content embedding-box" style="margin-bottom:4px"></div>
+                        <div id="emb-2" class="node-content embedding-box"></div>
+                    </div>
+
+                    <div id="vector-db" class="node-box vector-db-box">
+                        <div class="db-icon"><i data-lucide="database" size="32"></i></div>
+                        <div class="db-label">Vector Database</div>
+                        <div class="db-sub">Stores context vectors</div>
+                        <div id="db-lines-container" class="db-lines">
+                            <div class="db-line"></div>
+                            <div class="db-line"></div>
+                            <div class="db-line"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phase 2: RAG -->
+            <div class="phase-card phase-2" id="phase-2-card" style="opacity: 0.4;">
+                <div class="phase-title">
+                    <i data-lucide="cpu" style="color:var(--accent2)"></i>
+                    Phase 2: Retrieval & Generation
+                </div>
+
+                <div class="rag-layout">
+                    <div>
+                        <div class="rag-sub-title"><i data-lucide="search" size="16"></i> 1. Retrieval</div>
+                        <div class="rag-box">
+                            <div class="small-label">User Query</div>
+                            <div id="query-text" style="font-size:0.85rem;">...</div>
+                        </div>
+                        <div id="query-embedding-box" class="node-box hidden-el" style="padding:8px;">
+                            <div class="small-label">Query Vector</div>
+                            <div id="query-emb-text" class="embedding-box" style="font-size:0.7rem; padding:4px;"></div>
+                            <div class="similarity-bars" id="similarity-bars">
+                                <div class="sim-bar-row">
+                                    <span class="sim-bar-label">Chunk 1</span>
+                                    <div class="sim-bar-track"><div id="sim-bar-0" class="sim-bar-fill"></div></div>
+                                    <span id="sim-score-0" class="sim-bar-score"></span>
+                                </div>
+                                <div class="sim-bar-row">
+                                    <span class="sim-bar-label">Chunk 2</span>
+                                    <div class="sim-bar-track"><div id="sim-bar-1" class="sim-bar-fill"></div></div>
+                                    <span id="sim-score-1" class="sim-bar-score"></span>
+                                </div>
+                                <div class="sim-bar-row">
+                                    <span class="sim-bar-label">Chunk 3</span>
+                                    <div class="sim-bar-track"><div id="sim-bar-2" class="sim-bar-fill"></div></div>
+                                    <span id="sim-score-2" class="sim-bar-score"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="retrieved-context-box" class="rag-box context hidden-el" style="margin-top:10px;">
+                            <div class="small-label accent2">Retrieved Context</div>
+                            <div id="retrieved-text" style="font-size:0.8rem; font-style:italic;"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="rag-sub-title"><i data-lucide="layers" size="16"></i> 2. Augmentation</div>
+                        <div id="augmented-prompt-box" class="rag-box hidden-el">
+                            <div class="small-label" style="margin-bottom:8px;">Augmented Prompt</div>
+                            <div style="font-size:0.75rem; font-family:Consolas, monospace; line-height:1.4;">
+                                <div id="aug-system" class="hidden-el"><span style="color:var(--accent)">System:</span> Use context to answer.</div>
+                                <div id="aug-context" class="hidden-el" style="margin:4px 0;"><span style="color:var(--accent)">Context:</span> <span id="prompt-context" style="color:var(--accent2)"></span></div>
+                                <div id="aug-query" class="hidden-el"><span style="color:var(--accent)">User:</span> <span id="prompt-query" style="color:var(--accent6)"></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="rag-sub-title"><i data-lucide="brain-circuit" size="16"></i> 3. Generation</div>
+                        <div id="llm-output-box" class="rag-box output hidden-el">
+                            <div class="small-label accent6">LLM Response</div>
+                            <div id="llm-output-text" style="font-size:0.85rem; line-height:1.5;"></div>
+                            <span id="llm-cursor" style="width:2px; height:14px; background:var(--accent6); vertical-align:middle; display:none;"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-column">
+            <div class="demo-card controls-panel">
+                <h3 class="controls-heading">Demo Controls</h3>
+
+                <div class="controls-buttons">
+                    <button id="btn-prev" class="action-btn secondary" title="Previous Step">
+                        <i data-lucide="chevron-left"></i>
+                    </button>
+                    <button id="btn-next" class="action-btn btn-next">
+                        <span id="btn-icon"><i data-lucide="play-circle" size="18"></i></span>
+                        <span id="btn-next-text">Start Indexing</span>
+                    </button>
+                </div>
+
+                <div class="explainer-section">
+                    <h4 class="explainer-heading">Explanation</h4>
+                    <div id="explainer-text" class="explainer-body">
+                        We start with a source document containing knowledge the LLM hasn't been trained on.
+                    </div>
+                </div>
+
+                <div>
+                    <div class="progress-item">
+                        <div id="progress-dot-0" class="progress-dot active"></div>
+                        <div id="progress-label-0" class="progress-label active">Phase 1: Indexing</div>
+                    </div>
+                    <div class="progress-item">
+                        <div id="progress-dot-1" class="progress-dot"></div>
+                        <div id="progress-label-1" class="progress-label">Phase 2: RAG Pipeline</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="footer">
+  Interactive demos for Generative AI Fundamentals
+</div>
+
+<script>
+    // Initialize Icons
+    lucide.createIcons();
+
+    // --- MOCK DATA ---
+    const MOCK_DOCUMENT = "The Apollo 11 mission was the first manned mission to land on the Moon. It was launched on July 16, 1969. Neil Armstrong and Buzz Aldrin were the first humans to walk on the lunar surface.";
+    const MOCK_CHUNKS = [
+        "The Apollo 11 mission was the first manned mission to land on the Moon.",
+        "It was launched on July 16, 1969.",
+        "Neil Armstrong and Buzz Aldrin were the first humans to walk on the lunar surface."
+    ];
+    const MOCK_EMBEDDINGS = [
+        "[0.12, -0.45, 0.89...]",
+        "[-0.33, 0.71, 0.22...]",
+        "[0.94, -0.11, 0.55...]"
+    ];
+    const MOCK_QUERY = "Who were the first people to walk on the moon?";
+    const MOCK_QUERY_EMBEDDING = "[0.88, -0.09, 0.61...]";
+    const MOCK_SIMILARITIES = [0.41, 0.23, 0.94];
+    const RETRIEVED_CHUNK_INDEX = 2;
+    const MOCK_LLM_RESPONSE = "Based on the retrieved context, Neil Armstrong and Buzz Aldrin were the first humans to walk on the lunar surface.";
+
+    // --- STATE ENUM ---
+    const STATES = {
+        IDLE: 0,
+        CHUNKING: 1,
+        EMBEDDING_DOCS: 2,
+        STORED: 3,
+        QUERYING: 4,
+        EMBEDDING_QUERY: 5,
+        RETRIEVING: 6,
+        AUGMENTING: 7,
+        GENERATING: 8,
+        DONE: 9
+    };
+
+    const EXPLANATIONS = {
+        0: "We start with a source document containing knowledge the LLM hasn't been trained on.",
+        1: "The document is split into smaller, manageable pieces called 'Chunks'.",
+        2: "An Embedding Model converts each chunk into a vector that captures its semantic meaning.",
+        3: "These vectors are stored in a Vector Database for rapid semantic search.",
+        4: "A user asks a question. We need to find the most relevant chunks to answer it.",
+        5: "The user's query is also converted into a vector using the same embedding model.",
+        6: "We calculate the similarity between the query vector and all stored chunks to find the best match.",
+        7: "We build a new prompt that includes the retrieved context and the user's question.",
+        8: "The LLM generates an answer based on the provided context, preventing hallucinations.",
+        9: "Process complete! The LLM successfully used external knowledge to answer the query."
+    };
+
+    // Button text reflects what happens when you CLICK it
+    const BUTTON_TEXTS = {
+        0: "Start: Chunk Document",
+        1: "Generate Embeddings",
+        2: "Store in Vector DB",
+        3: "Enter User Query",
+        4: "Embed User Query",
+        5: "Search Vector DB",
+        6: "Augment Prompt",
+        7: "Generate Answer",
+        8: "Generating...",
+        9: "Restart Demo"
+    };
+
+    let step = STATES.IDLE;
+    let typingInterval = null;
+
+    const $ = id => document.getElementById(id);
+    const el = {
+        docText: $('doc-text'),
+        chunks: $('chunks-container'),
+        embeddings: $('embeddings-container'),
+        vectorDb: $('vector-db'),
+        dbLines: $('db-lines-container'),
+        phase2: $('phase-2-card'),
+        queryText: $('query-text'),
+        queryEmbBox: $('query-embedding-box'),
+        queryEmbText: $('query-emb-text'),
+        simBars: [$('sim-bar-0'), $('sim-bar-1'), $('sim-bar-2')],
+        simScores: [$('sim-score-0'), $('sim-score-1'), $('sim-score-2')],
+        retrievedBox: $('retrieved-context-box'),
+        retrievedText: $('retrieved-text'),
+        promptBox: $('augmented-prompt-box'),
+        promptContext: $('prompt-context'),
+        promptQuery: $('prompt-query'),
+        augSystem: $('aug-system'),
+        augContext: $('aug-context'),
+        augQuery: $('aug-query'),
+        outputBox: $('llm-output-box'),
+        outputText: $('llm-output-text'),
+        cursor: $('llm-cursor'),
+        btnNext: $('btn-next'),
+        btnPrev: $('btn-prev'),
+        btnText: $('btn-next-text'),
+        btnIcon: $('btn-icon'),
+        explainer: $('explainer-text'),
+        pDot0: $('progress-dot-0'),
+        pLbl0: $('progress-label-0'),
+        pDot1: $('progress-dot-1'),
+        pLbl1: $('progress-label-1')
+    };
+    const dbLineEls = el.dbLines.querySelectorAll('.db-line');
+
+    // Init
+    el.docText.textContent = MOCK_DOCUMENT;
+    for (let i = 0; i < 3; i++) {
+        $(`chunk-${i}`).textContent = MOCK_CHUNKS[i];
+        $(`emb-${i}`).textContent = MOCK_EMBEDDINGS[i];
+    }
+    el.queryEmbText.textContent = MOCK_QUERY_EMBEDDING;
+    el.retrievedText.textContent = `"${MOCK_CHUNKS[RETRIEVED_CHUNK_INDEX]}"`;
+    el.promptContext.textContent = MOCK_CHUNKS[RETRIEVED_CHUNK_INDEX];
+    el.promptQuery.textContent = MOCK_QUERY;
+
+    function toggleVis(element, visible, baseClass) {
+        element.className = baseClass + (visible ? ' visible-el' : ' hidden-el');
+    }
+
+    function updateUI() {
+        el.btnNext.disabled = (step === STATES.GENERATING);
+        el.btnPrev.disabled = (step === STATES.IDLE || step === STATES.GENERATING);
+        el.btnText.textContent = BUTTON_TEXTS[step];
+        el.explainer.textContent = EXPLANATIONS[step];
+
+        const iconName = step === STATES.IDLE ? 'play-circle' : step === STATES.DONE ? 'rotate-ccw' : 'chevron-right';
+        el.btnIcon.innerHTML = `<i data-lucide="${iconName}" size="18"></i>`;
+        lucide.createIcons();
+
+        // Phase 1
+        toggleVis(el.chunks, step >= STATES.CHUNKING, 'node-box');
+        toggleVis(el.embeddings, step >= STATES.EMBEDDING_DOCS, 'node-box');
+
+        // Vector DB
+        el.vectorDb.classList.toggle('stored', step >= STATES.STORED);
+        if (step === STATES.STORED) {
+            el.vectorDb.classList.add('pulse-storage');
+            setTimeout(() => el.vectorDb.classList.remove('pulse-storage'), 1000);
+        }
+        el.dbLines.style.display = step >= STATES.STORED ? 'flex' : 'none';
+
+        dbLineEls.forEach((line, i) => {
+            const isRetrieving = step >= STATES.RETRIEVING;
+            const isMatch = i === RETRIEVED_CHUNK_INDEX;
+            line.style.background = step >= STATES.STORED ? 'var(--accent2)' : 'var(--border)';
+            line.style.opacity = (isRetrieving && !isMatch) ? '0.2' : '1';
+            line.style.boxShadow = (isRetrieving && isMatch) ? '0 0 12px var(--accent2)' : 'none';
+            line.style.transform = (isRetrieving && isMatch) ? 'scaleY(1.5)' : 'scaleY(1)';
+        });
+
+        // Phase 2
+        el.phase2.style.opacity = step >= STATES.QUERYING ? '1' : '0.4';
+        el.queryText.textContent = step >= STATES.QUERYING ? MOCK_QUERY : '...';
+        el.queryText.style.color = step >= STATES.QUERYING ? 'var(--text)' : 'var(--text-dim)';
+
+        toggleVis(el.queryEmbBox, step >= STATES.EMBEDDING_QUERY, 'node-box');
+
+        // Similarity bars
+        for (let i = 0; i < 3; i++) {
+            const bar = el.simBars[i];
+            const score = el.simScores[i];
+            const sim = MOCK_SIMILARITIES[i];
+            const isBest = i === RETRIEVED_CHUNK_INDEX;
+            // HSL: 0 (red) at 0.0 → 160 (teal) at 1.0
+            const hue = Math.round(sim * 160);
+
+            if (step >= STATES.RETRIEVING) {
+                bar.style.width = (sim * 100) + '%';
+                bar.style.background = `hsl(${hue}, 70%, 50%)`;
+                bar.className = 'sim-bar-fill' + (isBest ? ' best-match' : '');
+                score.textContent = sim.toFixed(2);
+                score.className = 'sim-bar-score visible';
+            } else {
+                bar.style.width = '0%';
+                bar.style.background = '';
+                bar.className = 'sim-bar-fill';
+                score.textContent = '';
+                score.className = 'sim-bar-score';
+            }
+        }
+
+        toggleVis(el.retrievedBox, step >= STATES.RETRIEVING, 'rag-box context');
+        toggleVis(el.promptBox, step >= STATES.AUGMENTING, 'rag-box');
+        toggleVis(el.augSystem, step >= STATES.AUGMENTING, '');
+        toggleVis(el.augContext, step >= STATES.AUGMENTING, '');
+        toggleVis(el.augQuery, step >= STATES.AUGMENTING, '');
+        toggleVis(el.outputBox, step >= STATES.GENERATING, 'rag-box output');
+
+        // Typing effect
+        if (typingInterval) clearInterval(typingInterval);
+        if (step === STATES.GENERATING) {
+            el.outputText.textContent = "";
+            el.cursor.style.display = "inline-block";
+            let i = 0;
+            typingInterval = setInterval(() => {
+                el.outputText.textContent += MOCK_LLM_RESPONSE.charAt(i);
+                i++;
+                if (i >= MOCK_LLM_RESPONSE.length) {
+                    clearInterval(typingInterval);
+                    el.cursor.style.display = "none";
+                    step = STATES.DONE;
+                    updateUI();
+                }
+            }, 30);
+        } else if (step === STATES.DONE) {
+            el.outputText.textContent = MOCK_LLM_RESPONSE;
+            el.cursor.style.display = "none";
+        }
+
+        // Progress indicators
+        const inPhase1 = step <= STATES.STORED;
+        const isDone = step >= STATES.DONE;
+        el.pDot0.className = 'progress-dot' + (inPhase1 ? ' active' : ' done');
+        el.pLbl0.className = 'progress-label' + (inPhase1 ? ' active' : '');
+        el.pDot1.className = 'progress-dot' + (isDone ? ' done' : (!inPhase1 ? ' active' : ''));
+        el.pLbl1.className = 'progress-label' + (!inPhase1 ? ' active' : '');
+    }
+
+    el.btnNext.onclick = () => {
+        if (step === STATES.DONE) step = STATES.IDLE;
+        else step++;
+        updateUI();
+    };
+
+    el.btnPrev.onclick = () => {
+        if (step > STATES.IDLE) step--;
+        updateUI();
+    };
+
+    updateUI();
+</script>
+</body>
+</html>

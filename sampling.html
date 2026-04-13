@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sampling Strategies - GenAI Fundamentals</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="hero">
+  <h1><a href="index.html" style="text-decoration: none; color: inherit;">&larr;</a> Sampling Strategies</h1>
+  <p>Control randomness and token selection. Temperature adjusts the distribution, while Top-K and Top-P restrict the candidate pool.</p>
+</div>
+
+<div class="demo-section">
+  <div class="demo-card" id="sampling">
+    <div class="controls">
+      <div class="control-group">
+        <label>
+          Temperature: <span class="val-display" id="temp-val">1.00</span>
+          <span class="tooltip" data-tip="Controls randomness. Lower (0.0) makes the model deterministic (chooses the top token). Higher (1.0) makes it creative and diverse.">?</span>
+        </label>
+        <input type="range" id="temp-slider" min="0" max="100" value="100" oninput="updateSampling()">
+      </div>
+      <div class="control-group">
+        <label>
+          Top-P: <span class="val-display" id="topp-val">1.00</span>
+          <span class="tooltip" data-tip="Nucleus sampling. Keeps tokens until their total probability mass reaches P. At 1.0, it considers all likely options.">?</span>
+        </label>
+        <input type="range" id="topp-slider" min="10" max="100" value="100" oninput="updateSampling()">
+      </div>
+      <div class="control-group">
+        <label>
+          Top-K: <span class="val-display" id="topk-val">15</span>
+          <span class="tooltip" data-tip="Restricts the choice to the top K most likely tokens. Lower K (e.g., 5) results in more predictable text.">?</span>
+        </label>
+        <input type="range" id="topk-slider" min="1" max="15" value="15" oninput="updateSampling()">
+      </div>
+      <div class="control-group">
+        <label>
+          Filter Mode
+          <span class="tooltip" data-tip="Determines how to combine Top-K and Top-P restrictions. 'Intersection' applies both rules simultaneously.">?</span>
+        </label>
+        <select id="topkp-mode" onchange="updateSampling()">
+          <option value="topp" selected>Top-P only</option>
+          <option value="topk">Top-K only</option>
+          <option value="both">Both (Intersection)</option>
+        </select>
+      </div>
+      <button class="action-btn" onclick="sampleToken()">Sample Next Token</button>
+      <button class="action-btn secondary" onclick="resetSampled()">Reset</button>
+    </div>
+    <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:10px;">Prompt: <span style="color:var(--accent);">"My favorite food is"</span> &rarr; next token probabilities:</p>
+    <div class="viz-area">
+      <div class="bar-chart" id="sampling-chart"></div>
+    </div>
+    <div id="temp-sampled" style="margin-top:12px;font-size:0.9rem;min-height:24px;"></div>
+    <div id="sampling-info" style="margin-top:10px;font-size:0.85rem;color:var(--text-dim);"></div>
+  </div>
+</div>
+
+<div class="footer">
+  Interactive demos for Generative AI Fundamentals
+</div>
+
+<script src="sampling.js"></script>
+</body>
+</html>
